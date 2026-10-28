@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { calculatePrice } from "../src/discount.js";
 
 test("applies a 10% discount", () => {
-  assert.equal(calculatePrice(2_000_000, 10), 1_900_000);
+  assert.equal(calculatePrice(2_000_000, 10), 1_800_000);
 });
 
 test("zero discount keeps the original price", () => {
