@@ -76,8 +76,7 @@ jobs:
     name: 4. Continuous Delivery
     runs-on: ubuntu-latest
     needs: [lint, test, build]
-    # Keep deployment disabled until the staging environment and SSH settings are ready.
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.ENABLE_STAGING_DEPLOY == 'true'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     steps:
       - name: Checkout source code
