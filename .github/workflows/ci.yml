@@ -1,25 +1,27 @@
-name: Node.js CI
+name: Node.js CI/CD
 
 on:
   push:
     branches: [main]
+
   pull_request:
     branches: [main]
+
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  quality-checks:
-    name: Lint, Test and Build
+  lint:
+    name: 1. Lint
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout source code
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -27,11 +29,45 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Lint
+      - name: Run ESLint
         run: npm run lint
 
-      - name: Run tests
+  test:
+    name: 2. Test
+    runs-on: ubuntu-latest
+    needs: lint
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run unit tests
         run: npm test
 
-      - name: Build / syntax check
+  build:
+    name: 3. Build
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build application
         run: npm run build
