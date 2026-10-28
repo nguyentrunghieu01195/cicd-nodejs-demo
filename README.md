@@ -48,11 +48,15 @@ Workflow dùng `actions/upload-artifact@v6` và `actions/download-artifact@v7`, 
 
 Đây là Continuous Delivery: bản phát hành được chuẩn bị và sẵn sàng tải xuống.
 
-## Ví dụ deploy lên máy staging qua SSH
+## Demo nút phê duyệt và deploy staging qua SSH
 
-Job `deploy-staging` minh họa cách tải artifact rồi chép và giải nén trên một máy Linux. Đây là ví dụ triển khai tệp ứng dụng; với ứng dụng web đang chạy liên tục, máy staging cần thêm process manager (ví dụ systemd/PM2), reverse proxy và health check.
+Job `deploy-staging` tham chiếu GitHub Environment tên `staging`. Sau khi job `deliver` hoàn tất, workflow sẽ chuyển sang trạng thái chờ reviewer; runner chưa chạy bước SSH và chưa được cấp environment secrets cho tới khi có người duyệt. Sau khi duyệt, job tải artifact rồi chép, giải nén lên máy Linux. Đây là ví dụ triển khai tệp ứng dụng; với ứng dụng web chạy liên tục, máy staging cần thêm process manager (ví dụ systemd/PM2), reverse proxy và health check.
 
-Trước khi bật deploy, chuẩn bị máy staging và tài khoản SSH hạn chế quyền ghi vào thư mục ứng dụng. Trong **Settings → Secrets and variables → Actions**, tạo:
+### Cấu hình Environment để hiện nút duyệt
+
+1. Vào repository **Settings → Environments → New environment**, tạo environment `staging`.
+2. Trong **Deployment protection rules**, bật **Required reviewers**, thêm tài khoản hoặc team làm reviewer rồi lưu.
+3. Chuẩn bị máy staging và tài khoản SSH chỉ có quyền ghi vào thư mục ứng dụng. Trong phần secrets/variables của environment `staging`, tạo:
 
 | Loại | Tên | Giá trị |
 |---|---|---|
@@ -60,9 +64,17 @@ Trước khi bật deploy, chuẩn bị máy staging và tài khoản SSH hạn 
 | Secret | `STAGING_USER` | Tài khoản SSH dùng để deploy |
 | Secret | `STAGING_SSH_KEY` | Private key của tài khoản deploy |
 | Variable | `STAGING_PATH` | Thư mục đích, ví dụ `/var/www/cicd-nodejs-demo` |
-| Variable | `ENABLE_SSH_DEPLOY` | Đặt thành `true` để bật job deploy |
 
-Thêm public key tương ứng vào `authorized_keys` của tài khoản trên máy staging. Kiểm tra host key SSH theo quy trình của tổ chức trước khi deploy; ví dụ dùng `ssh-keyscan` trong workflow thuận tiện cho demo nhưng không xác thực host key ngoài băng. Chỉ bật `ENABLE_SSH_DEPLOY` khi đã chuẩn bị đủ secret, variable và máy đích. Khi chạy, deploy chỉ được thực hiện sau các bước lint, test, build và đóng gói thành công trên `main`. Không dùng khóa cá nhân hoặc tài khoản có quyền rộng cho workflow.
+Thêm public key tương ứng vào `authorized_keys` của tài khoản trên máy staging. Kiểm tra host key SSH theo quy trình của tổ chức trước khi deploy; ví dụ dùng `ssh-keyscan` trong workflow thuận tiện cho demo nhưng không xác thực host key ngoài băng. Không dùng khóa cá nhân hoặc tài khoản có quyền rộng cho workflow.
+
+### Thao tác duyệt trong buổi demo
+
+1. Push thay đổi lên `main`; chờ Lint, Test, Build và Continuous Delivery hoàn tất.
+2. Trong **Actions**, mở workflow run đó. Job **Deploy to staging (approval required)** sẽ ở trạng thái **Waiting**.
+3. Chọn **Review deployments**, chọn `staging`, rồi bấm **Approve and deploy**. Chọn **Reject** nếu muốn dừng.
+4. Sau khi được duyệt, theo dõi log SSH/SCP và kiểm tra file trên máy staging.
+
+GitHub plan có thể giới hạn Required reviewers theo loại repo. Theo tài liệu GitHub hiện tại, trên Free/Pro/Team, required reviewers chỉ khả dụng cho repository public; repo private/internal cần gói hỗ trợ phù hợp.
 
 ## Demo FAIL → PASS
 
