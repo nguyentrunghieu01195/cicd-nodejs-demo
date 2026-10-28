@@ -50,7 +50,7 @@ Workflow dùng `actions/upload-artifact@v6` và `actions/download-artifact@v7`, 
 
 ## Demo nút phê duyệt và deploy staging qua SSH
 
-Job `deploy-staging` tham chiếu GitHub Environment tên `staging`. Job được tắt mặc định để tránh tự thử SSH khi chưa cấu hình xong. Sau khi thiết lập environment và SSH bên dưới, đặt repository variable `ENABLE_STAGING_DEPLOY` thành `true`. Khi đó, sau job `deliver`, workflow sẽ chờ reviewer; runner chưa chạy bước SSH và chưa được cấp environment secrets cho tới khi có người duyệt. Sau khi duyệt, job tải artifact rồi chép, giải nén lên máy Linux. Đây là ví dụ triển khai tệp ứng dụng; với ứng dụng web chạy liên tục, máy staging cần thêm process manager (ví dụ systemd/PM2), reverse proxy và health check.
+Job `deploy-staging` tham chiếu GitHub Environment tên `staging`. Khi push lên `main`, sau job `deliver`, workflow đi vào job deploy. Nếu environment đã bật Required reviewers, GitHub giữ job ở trạng thái chờ; runner chưa chạy bước SSH và chưa được cấp environment secrets cho tới khi có người duyệt. Sau khi duyệt, job tải artifact rồi chép, giải nén lên máy Linux. Đây là ví dụ triển khai tệp ứng dụng; với ứng dụng web chạy liên tục, máy staging cần thêm process manager (ví dụ systemd/PM2), reverse proxy và health check.
 
 ### Cấu hình Environment để hiện nút duyệt
 
@@ -65,19 +65,17 @@ Job `deploy-staging` tham chiếu GitHub Environment tên `staging`. Job đượ
 | Secret | `STAGING_USER` | Tài khoản SSH dùng để deploy |
 | Secret | `STAGING_SSH_KEY` | Private key của tài khoản deploy |
 | Variable | `STAGING_PATH` | Thư mục đích, ví dụ `/var/www/cicd-nodejs-demo` |
-| Repository variable | `ENABLE_STAGING_DEPLOY` | `true` để bật job deploy sau khi đã cấu hình xong |
 
 Thêm public key tương ứng vào `authorized_keys` của tài khoản trên máy staging. Kiểm tra host key SSH theo quy trình của tổ chức trước khi deploy; ví dụ dùng `ssh-keyscan` trong workflow thuận tiện cho demo nhưng không xác thực host key ngoài băng. Không dùng khóa cá nhân hoặc tài khoản có quyền rộng cho workflow.
 
 ### Thao tác duyệt trong buổi demo
 
-1. Chỉ đặt `ENABLE_STAGING_DEPLOY=true` sau khi đã tạo environment, bật Required reviewers và lưu SSH secrets/variables.
-2. Push thay đổi lên `main`; chờ Lint, Test, Build và Continuous Delivery hoàn tất.
-3. Trong **Actions**, mở workflow run đó. Job **Deploy to staging (approval required)** phải ở trạng thái **Waiting** trước khi bấm duyệt.
-4. Chọn **Review deployments**, chọn `staging`, rồi bấm **Approve and deploy**. Chọn **Reject** nếu muốn dừng.
-5. Sau khi được duyệt, theo dõi log SSH/SCP và kiểm tra file trên máy staging.
+1. Push thay đổi lên `main`; chờ Lint, Test, Build và Continuous Delivery hoàn tất.
+2. Trong **Actions**, mở workflow run đó. Job **Deploy to staging (approval required)** phải ở trạng thái **Waiting** trước khi bấm duyệt.
+3. Chọn **Review deployments**, chọn `staging`, rồi bấm **Approve and deploy**. Chọn **Reject** nếu muốn dừng.
+4. Sau khi được duyệt, theo dõi log SSH/SCP và kiểm tra file trên máy staging.
 
-Ảnh minh họa có job chạy thẳng tới bước **Copy package to staging server** rồi lỗi vì thiếu `STAGING_*`; nghĩa là run đó không bị Required reviewers chặn. Đừng bật deploy cho tới khi xác nhận `Settings → Environments → staging → Required reviewers` đã được lưu và GitHub plan/repo hỗ trợ rule này. Nếu cấu hình đúng, job phải hiện **Waiting** và chưa có log các bước `Download release artifact` hoặc `Copy package...`.
+Nếu job bị **skipped** trong khi Continuous Delivery hoàn tất, kiểm tra các điều kiện `if` của job deploy và `needs`. Nếu job chạy thẳng qua bước SSH mà không chờ, kiểm tra `Settings → Environments → staging → Required reviewers` đã được lưu và GitHub plan/repo hỗ trợ rule này chưa. Khi cấu hình đúng, job phải hiện **Waiting** và chưa có log các bước `Download release artifact` hoặc `Copy package...`.
 
 GitHub plan có thể giới hạn Required reviewers theo loại repo. Theo tài liệu GitHub hiện tại, trên Free/Pro/Team, required reviewers chỉ khả dụng cho repository public; repo private/internal cần gói hỗ trợ phù hợp.
 
