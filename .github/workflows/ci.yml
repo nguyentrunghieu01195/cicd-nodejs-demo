@@ -94,7 +94,7 @@ jobs:
           tar -czf cicd-nodejs-demo-${GITHUB_SHA::7}.tar.gz -C release .
 
       - name: Upload release artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: cicd-nodejs-demo-${{ github.sha }}
           path: cicd-nodejs-demo-*.tar.gz
@@ -110,7 +110,7 @@ jobs:
 
     steps:
       - name: Download release artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: cicd-nodejs-demo-${{ github.sha }}
 

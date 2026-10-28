@@ -37,6 +37,8 @@ cicd-nodejs-demo/
 
 Workflow có job `deliver` phụ thuộc vào cả `lint`, `test` và `build`. Job này chỉ chạy khi push lên nhánh `main`; Pull Request vẫn chạy các bước CI nhưng không tạo gói phát hành. Sau khi CI thành công, job đóng gói các file ứng dụng thành `.tar.gz` có mã commit trong tên và lưu artifact của GitHub Actions trong 7 ngày.
 
+Workflow dùng `actions/upload-artifact@v6` và `actions/download-artifact@v7`, là các phiên bản chạy trên Node.js 24. Nếu dùng self-hosted runner, runner cần phiên bản `2.327.1` trở lên.
+
 ### Demo trên GitHub
 
 1. Push thay đổi hợp lệ lên `main`.
