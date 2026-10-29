@@ -1,133 +1,219 @@
+# Tên workflow, hiển thị trong tab "Actions" trên GitHub
 name: Node.js CI/CD
 
+# Khai báo các sự kiện (trigger) sẽ kích hoạt workflow
 on:
+  # Chạy khi có push code lên repository
   push:
+    # Chỉ áp dụng cho branch main
     branches: [main]
 
+  # Chạy khi có Pull Request được tạo/cập nhật
   pull_request:
+    # Chỉ áp dụng cho PR có đích (target) là branch main
     branches: [main]
 
+  # Cho phép chạy thủ công bằng nút "Run workflow" trên GitHub
   workflow_dispatch:
 
+# Quyền của GITHUB_TOKEN dùng trong workflow (nguyên tắc quyền tối thiểu)
 permissions:
+  # Chỉ cho phép đọc nội dung repository
   contents: read
 
+# Danh sách các job trong workflow
 jobs:
+  # ===================== JOB 1: LINT =====================
+  # ID của job (dùng để tham chiếu trong "needs")
   lint:
+    # Tên hiển thị của job trên giao diện GitHub
     name: 1. Lint
+    # Loại máy ảo (runner) để chạy job: Ubuntu bản mới nhất
     runs-on: ubuntu-latest
 
+    # Các bước thực hiện tuần tự trong job
     steps:
+      # Bước 1: lấy mã nguồn của repository về runner
       - name: Checkout source code
+        # Dùng action có sẵn actions/checkout phiên bản v5
         uses: actions/checkout@v5
 
+      # Bước 2: cài đặt môi trường Node.js
       - name: Setup Node.js
+        # Dùng action actions/setup-node phiên bản v6
         uses: actions/setup-node@v6
+        # Tham số truyền vào action
         with:
+          # Phiên bản Node.js sử dụng
           node-version: 22
 
+      # Bước 3: cài đặt các thư viện khai báo trong package.json
       - name: Install dependencies
+        # Lệnh shell thực thi
         run: npm install
 
+      # Bước 4: kiểm tra chất lượng/chuẩn code bằng ESLint
       - name: Run ESLint
+        # Chạy script "lint" định nghĩa trong package.json
         run: npm run lint
 
+  # ===================== JOB 2: TEST =====================
   test:
+    # Tên hiển thị của job
     name: 2. Test
+    # Runner Ubuntu mới nhất
     runs-on: ubuntu-latest
+    # Chỉ chạy sau khi job "lint" thành công
     needs: lint
 
     steps:
+      # Lấy mã nguồn về runner (mỗi job chạy trên một máy ảo riêng nên phải checkout lại)
       - name: Checkout source code
         uses: actions/checkout@v5
 
+      # Cài đặt Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
+          # Phiên bản Node.js 22
           node-version: 22
 
+      # Cài đặt dependencies
       - name: Install dependencies
         run: npm install
 
+      # Chạy unit test (script "test" trong package.json)
       - name: Run unit tests
         run: npm test
 
+  # ===================== JOB 3: BUILD =====================
   build:
+    # Tên hiển thị của job
     name: 3. Build
+    # Runner Ubuntu mới nhất
     runs-on: ubuntu-latest
+    # Chỉ chạy sau khi job "test" thành công
     needs: test
 
     steps:
+      # Lấy mã nguồn về runner
       - name: Checkout source code
         uses: actions/checkout@v5
 
+      # Cài đặt Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
+          # Phiên bản Node.js 22
           node-version: 22
 
+      # Cài đặt dependencies
       - name: Install dependencies
         run: npm install
 
+      # Build ứng dụng (script "build" trong package.json)
       - name: Build application
         run: npm run build
 
+  # ============ JOB 4: CONTINUOUS DELIVERY (đóng gói bản release) ============
   deliver:
+    # Tên hiển thị của job
     name: 4. Continuous Delivery
+    # Runner Ubuntu mới nhất
     runs-on: ubuntu-latest
+    # Chỉ chạy khi cả 3 job lint, test, build đều thành công
     needs: [lint, test, build]
+    # Chỉ chạy khi sự kiện là push lên branch main (không chạy với PR hay chạy thủ công)
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     steps:
+      # Lấy mã nguồn về runner
       - name: Checkout source code
         uses: actions/checkout@v5
 
+      # Cài đặt Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
+          # Phiên bản Node.js 22
           node-version: 22
 
+      # Tạo gói release dạng file nén .tar.gz
       - name: Prepare release package
+        # Dấu "|" cho phép viết nhiều lệnh shell trên nhiều dòng
         run: |
+          # Tạo thư mục release (-p: không báo lỗi nếu đã tồn tại)
           mkdir -p release
+          # Copy các file cần thiết để chạy ứng dụng vào thư mục release
           cp src/*.js package.json README.md release/
+          # Nén thư mục release thành file tar.gz, tên file kèm 7 ký tự đầu của commit SHA
           tar -czf cicd-nodejs-demo-${GITHUB_SHA::7}.tar.gz -C release .
 
+      # Upload file nén lên GitHub dưới dạng artifact để job sau sử dụng
       - name: Upload release artifact
+        # Dùng action actions/upload-artifact phiên bản v6
         uses: actions/upload-artifact@v6
         with:
+          # Tên artifact, gắn với commit SHA đầy đủ để phân biệt giữa các lần chạy
           name: cicd-nodejs-demo-${{ github.sha }}
+          # Đường dẫn file cần upload (dùng wildcard *)
           path: cicd-nodejs-demo-*.tar.gz
+          # Báo lỗi (fail job) nếu không tìm thấy file nào để upload
           if-no-files-found: error
+          # Số ngày lưu trữ artifact trên GitHub trước khi tự động xóa
           retention-days: 7
 
+  # ============ JOB 5: DEPLOY LÊN STAGING (cần phê duyệt) ============
   deploy-staging:
+    # Tên hiển thị của job
     name: 5. Deploy to staging (approval required)
+    # Runner Ubuntu mới nhất
     runs-on: ubuntu-latest
+    # Chỉ chạy sau khi job "deliver" thành công
     needs: deliver
+    # Chỉ chạy khi push lên branch main
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Gắn job với GitHub Environment (cấu hình trong Settings > Environments)
     environment:
+      # Tên environment; nếu bật "Required reviewers" thì job sẽ chờ người phê duyệt mới chạy
       name: staging
 
     steps:
+      # Tải artifact đã upload ở job "deliver" về runner
       - name: Download release artifact
+        # Dùng action actions/download-artifact phiên bản v7
         uses: actions/download-artifact@v7
         with:
+          # Tên artifact cần tải (phải trùng với tên lúc upload)
           name: cicd-nodejs-demo-${{ github.sha }}
 
+      # Copy gói release lên server staging qua SSH và giải nén
       - name: Copy package to staging server
+        # Khai báo biến môi trường cho bước này
         env:
+          # Địa chỉ (IP/hostname) server staging, lấy từ GitHub Secrets
           STAGING_HOST: ${{ secrets.STAGING_HOST }}
+          # User đăng nhập SSH vào server, lấy từ GitHub Secrets
           STAGING_USER: ${{ secrets.STAGING_USER }}
+          # Private key SSH dùng để xác thực, lấy từ GitHub Secrets
           STAGING_SSH_KEY: ${{ secrets.STAGING_SSH_KEY }}
+          # Thư mục deploy trên server, lấy từ GitHub Variables (không bí mật)
           STAGING_PATH: ${{ vars.STAGING_PATH }}
         run: |
+          # Kiểm tra cả 4 biến đều không rỗng; nếu thiếu biến nào thì lệnh trả lỗi và job dừng
           test -n "$STAGING_HOST" && test -n "$STAGING_USER" && test -n "$STAGING_SSH_KEY" && test -n "$STAGING_PATH"
+          # Tạo thư mục ~/.ssh với quyền 700 (chỉ chủ sở hữu được truy cập)
           install -m 700 -d ~/.ssh
+          # Ghi private key từ biến môi trường ra file deploy_key
           printf '%s\n' "$STAGING_SSH_KEY" > ~/.ssh/deploy_key
+          # Đặt quyền 600 cho private key (SSH bắt buộc key không được để quyền rộng)
           chmod 600 ~/.ssh/deploy_key
+          # Lấy host key của server và thêm vào known_hosts để tránh hỏi xác nhận khi kết nối
           ssh-keyscan -H "$STAGING_HOST" >> ~/.ssh/known_hosts
+          # Copy file nén lên thư mục /tmp của server staging bằng scp
           scp -i ~/.ssh/deploy_key cicd-nodejs-demo-*.tar.gz "$STAGING_USER@$STAGING_HOST:/tmp/cicd-nodejs-demo.tar.gz"
+          # SSH vào server: tạo thư mục deploy, giải nén gói vào đó, rồi xóa file nén tạm
           ssh -i ~/.ssh/deploy_key "$STAGING_USER@$STAGING_HOST" \
             "mkdir -p '$STAGING_PATH' && tar -xzf /tmp/cicd-nodejs-demo.tar.gz -C '$STAGING_PATH' && rm /tmp/cicd-nodejs-demo.tar.gz"
+          # Xóa private key khỏi runner sau khi deploy xong để đảm bảo an toàn
           rm -f ~/.ssh/deploy_key
