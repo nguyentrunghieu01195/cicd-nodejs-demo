@@ -6,4 +6,4 @@ const finalPrice = calculatePrice(price, discountPercent);
 
 console.log(`Original price: ${price}`);
 console.log(`Discount: ${discountPercent}%`);
-console.log(`Final price: ${finalPrice}`);
+console.log(`Final price 11: ${finalPrice}`);
